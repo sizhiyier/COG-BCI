@@ -53,6 +53,28 @@ class Per_Process:
 		self.record_dict = {}
 		self.if_baseline = True
 	
+	def epochs_to_raw(self, epochs):
+		# 提取 Epochs 的数据和信息
+		data = epochs.get_data()  # (n_epochs, n_channels, n_samples)
+		info = epochs.info.copy()
+		sfreq = info['sfreq']
+		tmin = epochs.tmin
+		
+		# 将 Epochs 数据重新构造成 Raw 数据
+		n_epochs, n_channels, n_samples = data.shape
+		raw_data = np.reshape(data, (n_channels, n_epochs * n_samples))
+		
+		# 创建时间轴
+		times = np.arange(n_epochs * n_samples) / sfreq + tmin
+		
+		# 创建 Raw 对象
+		raw = mne.io.RawArray(raw_data, info)
+		
+		# 设置时间轴
+		raw.times = times
+		
+		return raw
+	
 	def update_record(self, key, value):
 		"""
 		更新记录字典。如果key存在，则将value追加到该key对应的值列表中；
