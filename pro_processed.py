@@ -30,7 +30,7 @@ class Per_Process:
 		self.task_keywords = ('matb')
 		# self.task_keywords = ('back')
 		self.channels_drop = ['Cz']
-		self.save_folder_name = 'Per_Process_3'
+		self.save_folder_name = 'Per_Process_4'
 		self.eeg_freqs = (1, 100)
 		self.notch_freqs = (48, 52)
 		self.ecg_freq = (0.04, 40)
@@ -104,12 +104,12 @@ class Per_Process:
 	
 	def set_threshold(self):
 		# 默认1.5
-		self.threshold_drop_bad_channels = 1.5
+		self.threshold_drop_bad_channels = 3
 		# 默认4
 		self.threshold_annotate_muscle_zscore = 4
 		# 默认0.5
 		self.threshold_find_bads_muscle = 0.5
-		self.threshold_pro_icalabel = 0.9
+		self.threshold_pro_icalabel = 0.95
 	
 	def if_repair_artifact(self):
 		self.if_drop_bad_channels = True
@@ -309,8 +309,8 @@ class Per_Process:
 		# 	raw = self.drop_bad_period(raw)
 		# 	self.append_string('drop_bad_period')
 		# 降采样
-		# raw.resample(sfreq=self.sfreq)
-		# self.append_string('resample')
+		raw.resample(sfreq=200)
+		self.append_string('resample')
 		# ica去眼电与心电
 		raw = self.ica(raw)
 		self.append_string('ica')
