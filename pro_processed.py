@@ -30,7 +30,7 @@ class Per_Process:
 		# self.task_keywords = ('matb')
 		self.task_keywords = ('back')
 		self.channels_drop = ['Cz']
-		self.save_folder_name = 'Per_Process_2'
+		self.save_folder_name = 'Per_Process_3'
 		self.eeg_freqs = (1, 100)
 		self.notch_freqs = (48, 52)
 		self.ecg_freq = (0.04, 40)
@@ -117,6 +117,7 @@ class Per_Process:
 		self.if_find_bads_muscle = True
 		self.if_find_bads_ecgs = True
 		self.if_find_bads_eogs = True
+		self.only_brain = True
 	
 	def append_string(self, input_string):
 		# 拼接 self.process 和输入字符串，使用 '->' 连接
@@ -218,6 +219,23 @@ class Per_Process:
 		
 		ica = ICA(method='infomax', fit_params=dict(extended=True), max_iter="auto", random_state=1019)
 		ica.fit(raw)
+		
+		if self.only_brain:
+			ic_labels = label_components(raw, ica.copy(), method="iclabel")
+			brain_idx = [
+				idx for idx, (prob, lbl) in enumerate(zip(ic_labels['y_pred_proba'], ic_labels['labels']))
+				if lbl in ["brain"]
+			]
+			all_components = list(range(ica.n_components_))
+			
+			# 获取要排除的成分（即不在 brain_idx 的成分）
+			exclude_idx = [idx for idx in all_components if idx not in brain_idx]
+			ica.exclude = list(exclude_idx)
+			# 应用 ICA 去除伪迹成分
+			ica.apply(raw)
+			self.update_record('muscle_idx', len(brain_idx))
+			return raw
+		
 		if self.if_find_bads_muscle:
 			# scores = slope_score * focus_score * smoothness_score
 			muscle_idx, muscle_idx_scores = ica.find_bads_muscle(raw, threshold=self.threshold_find_bads_muscle)
@@ -229,6 +247,8 @@ class Per_Process:
 				idx for idx, (prob, lbl) in enumerate(zip(ic_labels['y_pred_proba'], ic_labels['labels']))
 				if lbl in ["eye blink"] and prob > self.threshold_pro_icalabel
 			]
+	
+				
 		combined_set = set()
 		if muscle_idx is not None:
 			combined_set.update(muscle_idx)

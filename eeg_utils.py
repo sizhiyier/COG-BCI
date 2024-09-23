@@ -363,12 +363,17 @@ class EEG_Feature_Extraction:
 		- 计算后的 PSD 数据。
 		"""
 		psd_all = []
+		psd_all_raw = []  # 新增用于保存未平均的PSD结果
 		for i, (_, freq_range) in enumerate(self.config.FREQ_BANDS.items()):
 			data_band = data_raw[:, i * 62:(i + 1) * 62, :]
-			psd = mne.time_frequency.psd_array_welch(data_band, sfreq=self.config.SAMPLE_RATE,
+			psd = mne.time_frequency.psd_array_welch(data_band, sfreq=self.config.SAMPLE_RATE,n_fft = 512,
 			                                         fmin=freq_range[0], fmax=freq_range[1])
 			psd_all.append(np.mean(psd[0], axis=2))
-		return np.concatenate(psd_all, axis=1)
+			psd_all_raw.append(psd[0])
+		return {
+			'mean': np.concatenate(psd_all, axis=1),
+			'raw': psd_all_raw
+		}
 	
 	def process_folds(self, feature_name, data_filt, n_splits=10):
 		"""
@@ -452,6 +457,8 @@ class EEG_Feature_Extraction:
 		- n_splits: 折数，默认 10。
 		- only_all_data: 是否只保存所有数据而不保存折数据，默认 False。
 		"""
+		
+		
 		if not only_all_data:
 			folds_data = self.process_folds(feature_name, data_filt, n_splits)
 		else:
