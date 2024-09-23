@@ -26,11 +26,11 @@ class Per_Process:
 	def __init__(self):
 		self.record_dict = {}
 		self.if_baseline = True
-		self.base_dir = '..\\sub'
-		self.task_keywords = ('matb')
-		# self.task_keywords = ('back')
+		self.base_dir = '..\\sub_test'
+		# self.task_keywords = ('matb')
+		self.task_keywords = ('back')
 		self.channels_drop = ['Cz']
-		self.save_folder_name = 'Per_Process_4'
+		self.save_folder_name = 'Per_Process_2'
 		self.eeg_freqs = (1, 100)
 		self.notch_freqs = (48, 52)
 		self.ecg_freq = (0.04, 40)
@@ -104,16 +104,16 @@ class Per_Process:
 	
 	def set_threshold(self):
 		# 默认1.5
-		self.threshold_drop_bad_channels = 3
+		self.threshold_drop_bad_channels = 2
 		# 默认4
 		self.threshold_annotate_muscle_zscore = 4
 		# 默认0.5
-		self.threshold_find_bads_muscle = 0.5
-		self.threshold_pro_icalabel = 0.95
+		self.threshold_find_bads_muscle = 0.9
+		self.threshold_pro_icalabel = 0.9
 	
 	def if_repair_artifact(self):
 		self.if_drop_bad_channels = True
-		self.if_annotate_muscle_zscore = True
+		self.if_annotate_muscle_zscore = False
 		self.if_find_bads_muscle = True
 		self.if_find_bads_ecgs = True
 		self.if_find_bads_eogs = True
@@ -121,11 +121,10 @@ class Per_Process:
 	def append_string(self, input_string):
 		# 拼接 self.process 和输入字符串，使用 '->' 连接
 		if self.first_call:
-			self.process = self.process+'->'+input_string
-
+			self.process = self.process + '->' + input_string
 	
 	def epochs_to_raw(self, epochs):
-		warnings.warn("此函数还未验证正确性", UserWarning)
+		warnings.warn("此函数不正确，请使用eeg_utils中Signal_Utils类的静态方法epochs_to_raw", UserWarning)
 		# 提取 Epochs 的数据和信息
 		data = epochs.get_data()  # (n_epochs, n_channels, n_samples)
 		info = epochs.info.copy()
@@ -184,6 +183,7 @@ class Per_Process:
 			# 标记肌电伪迹
 			annot_muscle, scores_muscle = annotate_muscle_zscore(
 				raw,
+				threshold=self.threshold_annotate_muscle_zscore,
 				ch_type='eeg',
 				filter_freq=(1, 100)
 			)
@@ -220,11 +220,11 @@ class Per_Process:
 		ica.fit(raw)
 		if self.if_find_bads_muscle:
 			# scores = slope_score * focus_score * smoothness_score
-			muscle_idx, muscle_idx_scores = ica.find_bads_muscle(raw, threshold=0.9)
+			muscle_idx, muscle_idx_scores = ica.find_bads_muscle(raw, threshold=self.threshold_find_bads_muscle)
 		if self.if_find_bads_ecgs:
 			ecg_idx, ecg_scores = ica.find_bads_ecg(raw, ch_name='ECG1')
 		if self.if_find_bads_eogs:
-			ic_labels = label_components(raw, ica, method="iclabel")
+			ic_labels = label_components(raw, ica.copy(), method="iclabel")
 			eog_idx = [
 				idx for idx, (prob, lbl) in enumerate(zip(ic_labels['y_pred_proba'], ic_labels['labels']))
 				if lbl in ["eye blink"] and prob > self.threshold_pro_icalabel
@@ -302,23 +302,27 @@ class Per_Process:
 		raw = self.reference_data(raw)
 		self.append_string('reference')
 		# 去除坏导
-		raw = self.drop_bad_channels(raw)
-		self.append_string('drop_bad_channels')
+		if self.if_drop_bad_channels:
+			raw = self.drop_bad_channels(raw)
+			self.append_string('drop_bad_channels')
 		# 去除坏段
-		# if self.task == 'matb':
-		# 	raw = self.drop_bad_period(raw)
-		# 	self.append_string('drop_bad_period')
+		if self.if_annotate_muscle_zscore:
+			if self.task == 'matb':
+				raw = self.drop_bad_period(raw)
+				self.append_string('matb_drop_bad_period')
+				
 		# 降采样
-		raw.resample(sfreq=200)
-		self.append_string('resample')
+		# raw.resample(sfreq=200)
+		# self.append_string('resample')
+
 		# ica去眼电与心电
 		raw = self.ica(raw)
 		self.append_string('ica')
 		
 		# 提取事件，去基线
-		# if self.task == 'back':
-		# 	raw = self.extract_data(raw, file_name)
-		# 	self.append_string('extract_data')
+		if self.task == 'back':
+			raw = self.extract_data(raw, file_name)
+			self.append_string('extract_data')
 		
 		raw_ecg = raw.copy().pick(picks='ecg')
 		raw_eeg = raw.copy().pick_types(eeg=True)
@@ -338,7 +342,6 @@ class Per_Process:
 			self.first_call = False
 	
 	def adjust_task(self, value):
-		file_dir = value
 		file_name = (value.split('\\')[-1]).split('.')[0]
 		# 判断任务类型
 		if file_name.startswith("MATB"):
